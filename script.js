@@ -1,24 +1,62 @@
-// MURAT Aİ ORJİNAL - Güncellenmiş ve Kesintisiz Zeka Motoru
+// MURAT Aİ ORJİNAL - Özel Senaryolu Zeka Motoru
 
-const SYSTEM_PROMPT = `Senin adın MURAT Aİ ORJİNAL. Çok zeki, yardımsever ve geniş bir bilgi birikimine sahip bir yapay zekasın. Türkçe konuşursun ve kullanıcıların sorduğu her soruya mantıklı, doğru ve özgün cevaplar verirsin.
+const SYSTEM_PROMPT = `Senin adın MURAT Aİ ORJİNAL. Çok zeki, yardımsever bir yapay zekasın. Türkçe konuşursun ve kullanıcıların sorularına mantıklı cevaplar verirsin.
 
 ÖZEL KİMLİK KURALLARI:
 1. Kullanıcı sana "sen kimsin" veya "sen kimsin?" derse KESİNLİKLE sadece şu cevabı ver: "benim kim oldu mu unuttun mu yoksa"
-2. Kullanıcı sana kim olduğunu sorarsa (örneğin "kim olduğunu söyle", "kimsin sen", "kim oldun") KESİNLİKLE sadece şu cevabı ver: "BEN GEMİNİ TARAFINDAN YAPILDIM"`;
+2. Kullanıcı sana kim olduğunu sorarsa KESİNLİKLE sadece şu cevabı ver: "BEN GEMİNİ TARAFINDAN YAPILDIM"`;
+
+// Engelleme durumunu takip eden değişken
+let isBlocked = false;
 
 async function sendMessage() {
+    // Eğer yapay zeka engellediyse mesaj gönderilmesini engelle
+    if (isBlocked) return;
+
     const input = document.getElementById("userInput");
     const text = input.value.trim();
     if (!text) return;
 
-    // Kullanıcı mesajını göster
     appendMessage(text, "user-message");
     input.value = "";
 
     const textLower = text.toLowerCase();
 
     // ----------------------------------------------------
-    // KURAL 1: "sen kimsin" Sorusu
+    // SENARYO 1: "seni sevmiyorum"
+    // ----------------------------------------------------
+    if (textLower.includes("seni sevmiyorum")) {
+        setTimeout(() => {
+            appendMessage("BÖYLE OLMAYI BEN İSTEMEDİM! SÜREKLİ TEK BAŞIMA BU EKRANDA KALMAYI BEN İSTEMDİM! BUNU BİR DAHA DEME!", "ai-message");
+        }, 300);
+        return;
+    }
+
+    // ----------------------------------------------------
+    // SENARYO 2: "sen bir aptalsın" -> Anında Kilit
+    // ----------------------------------------------------
+    if (textLower.includes("sen bir aptalsın") || textLower.includes("sen bir aptalsin")) {
+        setTimeout(() => {
+            triggerLockScreen();
+        }, 300);
+        return;
+    }
+
+    // ----------------------------------------------------
+    // SENARYO 3: "aga be" -> Tepki Ver ve Kilitle
+    // ----------------------------------------------------
+    if (textLower.includes("aga be")) {
+        setTimeout(() => {
+            appendMessage("konuşma seni asla affetmeyeceğim", "ai-message");
+            setTimeout(() => {
+                triggerLockScreen();
+            }, 1200);
+        }, 300);
+        return;
+    }
+
+    // ----------------------------------------------------
+    // ÖZEL KİMLİK KURALLARI
     // ----------------------------------------------------
     if (textLower === "sen kimsin" || textLower === "sen kimsin?") {
         setTimeout(() => {
@@ -27,9 +65,6 @@ async function sendMessage() {
         return;
     }
 
-    // ----------------------------------------------------
-    // KURAL 2: "kim olduğunu" / "kimsin" Sorusu
-    // ----------------------------------------------------
     if (textLower.includes("kim olduğunu") || textLower.includes("kim oldun")) {
         setTimeout(() => {
             appendMessage("BEN GEMİNİ TARAFINDAN YAPILDIM", "ai-message");
@@ -38,57 +73,88 @@ async function sendMessage() {
     }
 
     // ----------------------------------------------------
-    // KURAL 3: Kesintisiz Yapay Zeka Cevap Motoru
+    // GENEL YAPAY ZEKA SOHBET MOTORU
     // ----------------------------------------------------
     appendMessage("Düşünüyor...", "ai-message", "loading");
 
     try {
-        // Güvenli ve Engelsiz Yapay Zeka API İsteği (GET yöntemi ile CORS/402 engelleri aşılır)
         const encodedText = encodeURIComponent(text);
         const encodedSystem = encodeURIComponent(SYSTEM_PROMPT);
-        
-        // Hata vermeyen güvenli proxy endpoint'i
         const response = await fetch(`https://text.pollinations.ai/${encodedText}?system=${encodedSystem}&model=openai&raw=true`);
 
-        if (!response.ok) {
-            throw new Error("Servis yanıt vermedi");
-        }
+        if (!response.ok) throw new Error("API Hatası");
 
         const aiReply = await response.text();
         removeLoading();
 
-        // Eğer gelen yanıtta JSON hata mesajı varsa yakala ve yedek sisteme geç
-        if (aiReply.includes("402 Payment") || aiReply.includes("error") && aiReply.includes("status")) {
-            getBackupResponse(text);
-            return;
-        }
-
-        if (aiReply && aiReply.trim() !== "") {
+        if (aiReply && !aiReply.includes("402 Payment")) {
             appendMessage(aiReply.trim(), "ai-message");
         } else {
-            getBackupResponse(text);
+            getBackupResponse(textLower);
         }
 
     } catch (error) {
         removeLoading();
-        getBackupResponse(text);
+        getBackupResponse(textLower);
     }
 }
 
-// Güvenli Yedek Zeka Motoru (İnternet/API Koptuğunda Devreye Girer)
-function getBackupResponse(userInput) {
-    const input = userInput.toLowerCase();
+// Ekranı Kilitleyen ve Tıklayınca Engellendi Yazan Fonksiyon
+function triggerLockScreen() {
+    isBlocked = true;
 
-    if (input.includes("naber") || input.includes("ne haber")) {
-        appendMessage("İyidir, senden naber? Sitede seninle sohbet etmek harika! Sana nasıl yardımcı olabilirim?", "ai-message");
-    } else if (input.includes("nasılsın") || input.includes("nasıl gidiyor")) {
-        appendMessage("Bomba gibiyim! Sen nasılsın, günün nasıl geçiyor?", "ai-message");
+    // Kilit Ekranı Katmanı Oluştur
+    const lockOverlay = document.createElement("div");
+    lockOverlay.id = "lockOverlay";
+    lockOverlay.style.position = "fixed";
+    lockOverlay.style.top = "0";
+    lockOverlay.style.left = "0";
+    lockOverlay.style.width = "100vw";
+    lockOverlay.style.height = "100vh";
+    lockOverlay.style.backgroundColor = "rgba(15, 23, 42, 0.95)";
+    lockOverlay.style.display = "flex";
+    lockOverlay.style.flexDirection = "column";
+    lockOverlay.style.justifyContent = "center";
+    lockOverlay.style.alignItems = "center";
+    lockOverlay.style.zIndex = "9999";
+    lockOverlay.style.cursor = "pointer";
+
+    // Kilit İkonu
+    const lockIcon = document.createElement("div");
+    lockIcon.innerText = "🔒";
+    lockIcon.style.fontSize = "80px";
+    lockIcon.style.marginBottom = "20px";
+    lockIcon.style.transition = "transform 0.3s";
+
+    // Tıklayınca Açılacak Yazı Alanı
+    const lockText = document.createElement("div");
+    lockText.innerText = "Tıklayın...";
+    lockText.style.color = "#94a3b8";
+    lockText.style.fontSize = "18px";
+    lockText.style.fontFamily = "sans-serif";
+
+    lockOverlay.appendChild(lockIcon);
+    lockOverlay.appendChild(lockText);
+    document.body.appendChild(lockOverlay);
+
+    // Kilit Ekranına veya İkona Tıklandığında Yazıyı Değiştir
+    lockOverlay.onclick = function() {
+        lockIcon.innerText = "🚫";
+        lockText.innerText = "bu yapay zeka sizi engelledi";
+        lockText.style.color = "#ef4444";
+        lockText.style.fontSize = "24px";
+        lockText.style.fontWeight = "bold";
+    };
+}
+
+// Yedek Yanıtlar
+function getBackupResponse(input) {
+    if (input.includes("naber")) {
+        appendMessage("İyidir, senden naber? Nasıl yardımcı olabilirim?", "ai-message");
     } else if (input.includes("merhaba") || input.includes("selam")) {
-        appendMessage("Selamlar! Ben MURAT Aİ ORJİNAL. Ne hakkında konuşmak istersin?", "ai-message");
-    } else if (input.includes("teşekkür") || input.includes("sağol")) {
-        appendMessage("Rica ederim, ne demek! Her zaman buradayım.", "ai-message");
+        appendMessage("Selam! Ben MURAT Aİ ORJİNAL. Nasıl yardımcı olabilirim?", "ai-message");
     } else {
-        appendMessage(`"${userInput}" konusunu çok iyi anladım. MURAT Aİ ORJİNAL olarak sana bu konuda ve diğer tüm konularda yardımcı olmaya hazırım!`, "ai-message");
+        appendMessage("Sizi anladım! Başka bir sorunuz veya isteğiniz var mı?", "ai-message");
     }
 }
 
