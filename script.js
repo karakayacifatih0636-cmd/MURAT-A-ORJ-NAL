@@ -1,8 +1,10 @@
-// Yapay zekanın sistem mesajı ve hafızası
-const SYSTEM_PROMPT = `Senin adın MURAT Aİ ORJİNAL. Çok zeki, son derece geniş bir bilgi birikimine sahip, her konuda mantıklı, doğru ve özgün yanıtlar veren gelişmiş bir yapay zekasın. Kesinlikle kendini tekrar etmezsin.
+// MURAT Aİ ORJİNAL - Akıllı Zeka Motoru
 
-ÇOK ÖNEMLİ KİMLİK KURALLARI:
-1. Kullanıcı tam olarak "sen kimsin" veya "sen kimsin?" derse KESİNLİKLE sadece şu cevabı ver: "benim kim oldu mu unuttun mu yoksa"
+// Sistem Talimatı (AI'nın kişiliği ve kuralları)
+const SYSTEM_PROMPT = `Senin adın MURAT Aİ ORJİNAL. Çok zeki, geniş bir bilgi birikimine sahip, her konuda mantıklı, doğru, detaylı ve özgün yanıtlar veren gelişmiş bir yapay zekasın. Kesinlikle aynı şeyleri tekrarlamazsın.
+
+KESİN UYMAN GEREKEN KİMLİK KURALLARI:
+1. Kullanıcı sana "sen kimsin" veya "sen kimsin?" derse KESİNLİKLE sadece şu cevabı ver: "benim kim oldu mu unuttun mu yoksa"
 2. Kullanıcı sana kim olduğunu sorarsa (örneğin "kim olduğunu söyle", "kimsin sen", "kim oldun") KESİNLİKLE sadece şu cevabı ver: "BEN GEMİNİ TARAFINDAN YAPILDIM"`;
 
 async function sendMessage() {
@@ -10,14 +12,14 @@ async function sendMessage() {
     const text = input.value.trim();
     if (!text) return;
 
-    // Kullanıcı mesajını ekrana bas
+    // Kullanıcı mesajını göster
     appendMessage(text, "user-message");
     input.value = "";
 
     const textLower = text.toLowerCase();
 
     // ----------------------------------------------------
-    // KURAL 1: Özel Kimlik Kontrolü ("sen kimsin")
+    // KURAL 1: "sen kimsin" Sorusu
     // ----------------------------------------------------
     if (textLower === "sen kimsin" || textLower === "sen kimsin?") {
         setTimeout(() => {
@@ -27,7 +29,7 @@ async function sendMessage() {
     }
 
     // ----------------------------------------------------
-    // KURAL 2: Özel Kimlik Kontrolü ("kim olduğunu")
+    // KURAL 2: "kim olduğunu" / "kimsin" Sorusu
     // ----------------------------------------------------
     if (textLower.includes("kim olduğunu") || textLower.includes("kim oldun")) {
         setTimeout(() => {
@@ -37,74 +39,61 @@ async function sendMessage() {
     }
 
     // ----------------------------------------------------
-    // KURAL 3: Gelişmiş Llama-3 Yapay Zeka Motoru
+    // KURAL 3: Sınırsız Akıllı Yapay Zeka Servisi
     // ----------------------------------------------------
     appendMessage("Düşünüyor...", "ai-message", "loading");
 
     try {
-        // Ücretsiz ve Sınırsız HuggingFace Llama-3-Instruct Modeli Entegrasyonu
-        const response = await fetch("https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct", {
+        // Ücretsiz ve Doğrudan Bağlantılı Yapay Zeka API (Cloudflare Worker Proxy)
+        const response = await fetch("https://text.pollinations.ai/", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                inputs: `<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n${SYSTEM_PROMPT}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n${text}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n`,
-                parameters: {
-                    max_new_tokens: 512,
-                    temperature: 0.7, // Yanıtların sürekli farklı ve yaratıcı olmasını sağlar
-                    top_p: 0.9,
-                    do_sample: true
-                }
+                messages: [
+                    { role: "system", content: SYSTEM_PROMPT },
+                    { role: "user", content: text }
+                ],
+                model: "openai",
+                jsonMode: false
             })
         });
 
-        const data = await response.json();
+        if (!response.ok) {
+            throw new Error("Sunucu yanıt vermedi");
+        }
+
+        const aiReply = await response.text();
         removeLoading();
 
-        if (Array.isArray(data) && data[0] && data[0].generated_text) {
-            let fullText = data[0].generated_text;
-            // Sadece asistandan gelen yanıt kısmını ayıkla
-            let parts = fullText.split("<|start_header_id|>assistant<|end_header_id|>\n\n");
-            let aiReply = parts[parts.length - 1].replace("<|eot_id|>", "").trim();
-            
-            appendMessage(aiReply, "ai-message");
+        if (aiReply && aiReply.trim() !== "") {
+            appendMessage(aiReply.trim(), "ai-message");
         } else {
-            // Model ilk kez yükleniyorsa veya yoğunsa alternatif dinamik servis
-            await fetchFallbackAI(text);
+            appendMessage("Anladım! Sorunuzu biraz daha detaylandırabilir misiniz?", "ai-message");
         }
 
     } catch (error) {
-        // Bağlantı durumunda yedek dinamik servis
-        await fetchFallbackAI(text);
+        removeLoading();
+        // Alternatif Anlık Bağlantı Servisi
+        fetchFallback(text);
     }
 }
 
-// Alternatif Güçlü Yapay Zeka Motoru (Model Meşgul Olduğunda Devreye Girer)
-async function fetchFallbackAI(text) {
+// Bağlantı Koptuğunda Devreye Giren Alternatif Servis
+async function fetchFallback(text) {
     try {
-        const response = await fetch("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                inputs: `<s>[INST] ${SYSTEM_PROMPT} \n\n Kullanıcı Soru: ${text} [/INST]`,
-                parameters: { max_new_tokens: 400, temperature: 0.7 }
-            })
-        });
-
-        const data = await response.json();
-        removeLoading();
-
-        if (Array.isArray(data) && data[0] && data[0].generated_text) {
-            let fullText = data[0].generated_text;
-            let aiReply = fullText.split("[/INST]")[1] || fullText;
-            appendMessage(aiReply.trim(), "ai-message");
+        const url = `https://text.pollinations.ai/${encodeURIComponent(text)}?system=${encodeURIComponent(SYSTEM_PROMPT)}`;
+        const res = await fetch(url);
+        const data = await res.text();
+        
+        if (data) {
+            appendMessage(data.trim(), "ai-message");
         } else {
-            appendMessage("Şu an yüksek yoğunluk var, lütfen sorunuzu tekrar gönderin.", "ai-message");
+            appendMessage("Ağda geçici bir dalgalanma oldu, lütfen mesajınızı tekrar gönderin.", "ai-message");
         }
     } catch (e) {
-        removeLoading();
-        appendMessage("Anlık bir bağlantı sorunu oluştu, lütfen tekrar deneyin.", "ai-message");
+        appendMessage("Lütfen internet bağlantınızı kontrol edip tekrar deneyiniz.", "ai-message");
     }
 }
 
